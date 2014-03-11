@@ -18,84 +18,10 @@ import time
 import signal
 
 import anyjson
-import kombu
-import kombu.mixins
-from kombu import serialization
 
 import queued_log
+import message_service
 
-
-class Consumer(kombu.mixins.ConsumerMixin):
-    def __init__(self, name, connection, deployment, durable, queue_arguments,
-                 exchange, topics, logger, shutdown_soon, handler):
-        self.connection = connection
-        self.deployment = deployment
-        self.durable = durable
-        self.queue_arguments = queue_arguments
-        self.name = name
-        self.last_time = None
-        self.processed = 0
-        self.total_processed = 0
-        self.topics = topics
-        self.exchange = exchange
-        self.logger = logger
-        self.shutdown_soon = shutdown_soon
-        self.handler = handler
-
-        signal.signal(signal.SIGTERM, self._shutdown)
-
-        serialization.register('bufferjson', self.loads, anyjson.dumps,
-                               content_type='application/json',
-                               content_encoding='binary')
-
-    def loads(s):
-        return anyjson.loads(serialization.BytesIO(s))
-
-    def _create_exchange(self, name, type, exclusive=False, auto_delete=False):
-        return message_service.create_exchange(name, exchange_type=type,
-                                               exclusive=exclusive,
-                                               durable=self.durable,
-                                               auto_delete=auto_delete)
-
-    def _create_queue(self, name, nova_exchange, routing_key, exclusive=False,
-                     auto_delete=False):
-        return message_service.create_queue(
-            name, nova_exchange, durable=self.durable, auto_delete=exclusive,
-            exclusive=auto_delete, queue_arguments=self.queue_arguments,
-            routing_key=routing_key)
-
-    def get_consumers(self, Consumer, channel):
-        exchange = self._create_exchange(self.exchange, "topic")
-
-        queues = [self._create_queue(topic['queue'], exchange,
-                                     topic['routing_key'])
-                  for topic in self.topics]
-
-        return [Consumer(queues=queues, callbacks=[self.on_notification])]
-
-    def _process(self, message):
-        routing_key = message.delivery_info['routing_key']
-
-        body = str(message.body)
-        args = (routing_key, anyjson.loads(body))
-        asJson = anyjson.dumps(args)
-        # save raw and ack the message
-        self.handler.on_event(self.deployment, args, asJson, self.exchange)
-
-        self.processed += 1
-        message.ack()
-
-    def on_notification(self, body, message):
-        try:
-            self._process(message)
-        except Exception, e:
-            self.logger.debug("Problem: %s\nFailed message body:\n%s" %
-                      (e, anyjson.loads(str(message.body))))
-            raise
-
-    def _shutdown(self, signal, stackframe = False):
-        self.should_stop = True
-        self.shutdown_soon = True
 
 
 class NoopHandler(object):
@@ -154,12 +80,12 @@ class NotaBeneProcess(object):
         while continue_running():
             try:
                 self.logger.debug("Processing on '%s %s'" % (name, exchange))
-                with kombu.connection.BrokerConnection(**params) as conn:
+                with message_service.BrokerConnection(**params) as conn:
                     try:
-                        consumer = Consumer(name, conn, deployment_id, durable,
-                                            queue_arguments, exchange,
-                                            topics[exchange], noop_handler)
-                        consumer.run()
+                        worker = Worker(name, conn, deployment_id, durable,
+                                        queue_arguments, exchange,
+                                        topics[exchange], noop_handler)
+                        worker.run()
                     except Exception as e:
                         self.logger.exception(
                             "name=%s, exchange=%s, exception=%s. "
