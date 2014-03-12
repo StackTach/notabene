@@ -20,29 +20,35 @@ import signal
 import anyjson
 
 import queued_log
-import message_service
-
 
 
 class NoopHandler(object):
+    def __init__(self, process):
+        self.process = process
+
     def on_event(self, deployment, args, asJson, exchange):
         print "deployment: %s, args: %s, payload: %s, exchange: %s" % (
             deployment, args, asJson, exchange)
 
+    def shutting_down(self):
+        self.shutdown_soon = True
+
 
 class NotaBeneProcess(object):
 
-    def __init__(self, deployment_config, exchange, log_manager):
+    def __init__(self, deployment_config, exchange, log_manager, driver, 
+                 callback_class):
         self.deployment_config = deployment_config
         self.exchange = exchange
-        self.logger = log_manager.get_logger("worker", is_parent=False)
         self.shutdown_soon = False
+        self.driver = driver
+        self.callback_class = callback_class
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
     def _continue_running(self):
-        return not self.hutdown_soon
+        return not self.shutdown_soon
 
     def _exit_or_sleep(self, exit=False):
         if exit:
@@ -51,61 +57,37 @@ class NotaBeneProcess(object):
 
     def run(self):
         name = self.deployment_config['name']
-        host = self.deployment_config.get('rabbit_host', 'localhost')
-        port = self.deployment_config.get('rabbit_port', 5672)
-        user_id = self.deployment_config.get('rabbit_userid', 'rabbit')
-        password = self.deployment_config.get('rabbit_password', 'rabbit')
-        virtual_host = self.deployment_config.get('rabbit_virtual_host', '/')
-        durable = self.deployment_config.get('durable_queue', True)
-        queue_arguments = self.deployment_config.get('queue_arguments', {})
         exit_on_exception = self.deployment_config.get('exit_on_exception',
                                                        False)
-        topics = self.deployment_config.get('topics', {})
-
         deployment_id = deployment_config['id']  # Mandatory.
 
+        self.logger = log_manager.get_logger("worker", is_parent=False)
         self.logger.info("%s: %s %s %s %s %s" %
                     (name, exchange, host, port, user_id, virtual_host))
 
-        params = dict(hostname=host,
-                      port=port,
-                      userid=user_id,
-                      password=password,
-                      transport="librabbitmq",
-                      virtual_host=virtual_host)
-
-        noop_handler = NoopHandler()
+        callback = self.callback_class(self)
 
         # continue_running() is used for testing
         while continue_running():
+            self.logger.debug("Processing on '%s %s'" % (name, self.exchange))
             try:
-                self.logger.debug("Processing on '%s %s'" % (name, exchange))
-                with message_service.BrokerConnection(**params) as conn:
-                    try:
-                        worker = Worker(name, conn, deployment_id, durable,
-                                        queue_arguments, exchange,
-                                        topics[exchange], noop_handler)
-                        worker.run()
-                    except Exception as e:
-                        self.logger.exception(
-                            "name=%s, exchange=%s, exception=%s. "
-                            "Reconnecting in 5s" % (name, exchange, e))
-                        exit_or_sleep(exit_on_exception)
-                self.logger.debug("Completed processing on '%s %s'" %
-                                          (name, exchange))
-            except Exception:
-                e = sys.exc_info()[0]
-                msg = "Uncaught exception: deployment=%s, exchange=%s, " \
-                      "exception=%s. Retrying in 5s"
-                self.logger.exception(msg % (name, exchange, e))
+                self.driver(callback, name, deployment_id, 
+                            self.deployment_config, self.exchange,
+                            self.logger)
+            except Exception as e:
+                self.logger.exception(
+                    "name=%s, exchange=%s, exception=%s. "
+                    "Reconnecting in 5s" % (name, exchange, e))
                 exit_or_sleep(exit_on_exception)
-        self.logger.info("Worker exiting.")
+        self.logger.debug("Completed processing on '%s %s'" % (name, exchange))
 
 
 class NotaBene(object):
-    def __init__(self):
+    def __init__(self, driver, callback_class):
         self.processes = []
         self.log_listener = None
+        self.driver = driver
+        self.callback_class = callback_class
 
     def _kill_time(self, signal, frame):
         print "dying ..."
@@ -136,7 +118,8 @@ class NotaBene(object):
                 close_connection()
                 for exchange in deployment.get('topics').keys():
                     process = multiprocessing.Process(target=_spawn_consumer,
-                              args=(self.log_listener, deployment, exchange))
+                              args=(self.log_listener, deployment, exchange, 
+                                    self.driver, self.callback_class))
                     process.daemon = True
                     process.start()
                     processes.append(process)

@@ -24,34 +24,24 @@ def _loads(string):
     return anyjson.loads(kombu.serialization.BytesIO(string))
 
 
-def register_json_handler(self):
-    kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
-                           content_type='application/json',
-                           content_encoding='binary')
-
-
 class Worker(kombu.mixins.ConsumerMixins):
     def __init__(self, callback, name, connection, deployment, durable,
-                 queue_arguments, exchange, topics, logger, shutdown_soon,
-                 handler):
+                 queue_arguments, exchange, topics, logger):
         self.callback = callback
         self.connection = connection
         self.deployment = deployment
         self.durable = durable
         self.queue_arguments = queue_arguments
         self.name = name
-        self.last_time = None
-        self.processed = 0
-        self.total_processed = 0
         self.topics = topics
         self.exchange = exchange
         self.logger = logger
-        self.shutdown_soon = shutdown_soon
-        self.handler = handler
 
         signal.signal(signal.SIGTERM, self._shutdown)
 
-        message_service.register_json_handler()
+        kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
+                                     content_type='application/json',
+                                     content_encoding='binary')
 
     def _create_exchange(self, name, exchange_type, exclusive=False,
                          auto_delete=False, durable=True):
@@ -85,8 +75,6 @@ class Worker(kombu.mixins.ConsumerMixins):
         asJson = anyjson.dumps(args)
         # save raw and ack the message
         self.callback.on_event(self.deployment, args, asJson, self.exchange)
-
-        self.processed += 1
         message.ack()
 
     def on_notification(self, body, message):
@@ -97,6 +85,31 @@ class Worker(kombu.mixins.ConsumerMixins):
                       (e, anyjson.loads(str(message.body))))
             raise
 
-    def _shutdown(self, signal, stackframe = False):
+    def _shutdown(self, signal, stackframe=False):
         self.should_stop = True
-        self.shutdown_soon = True
+        self.callback.shutting_down()
+
+
+def start_worker(callback, name, deployment_id, deployment_config, 
+                 exchange, logger, shutdown_soon):
+    host = deployment_config.get('rabbit_host', 'localhost')
+    port = deployment_config.get('rabbit_port', 5672)
+    user_id = deployment_config.get('rabbit_userid', 'rabbit')
+    password = deployment_config.get('rabbit_password', 'rabbit')
+    virtual_host = deployment_config.get('rabbit_virtual_host', '/')
+    durable = deployment_config.get('durable_queue', True)
+    queue_arguments = deployment_config.get('queue_arguments', {})
+    topics = deployment_config.get('topics', {})
+
+    params = dict(hostname=host,
+                  port=port,
+                  userid=user_id,
+                  password=password,
+                  transport="librabbitmq",
+                  virtual_host=virtual_host)
+
+    with kombu.connection.BrokerConnection(**params) as conn:
+        worker = Worker(callback, name, conn, deployment_id, durable,
+                        queue_arguments, exchange, topics[exchange], 
+                        logger)
+        worker.run()
