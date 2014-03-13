@@ -10,6 +10,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import signal 
+
 import anyjson
 import kombu
 import kombu.entity
@@ -63,9 +65,9 @@ class Worker(kombu.mixins.ConsumerMixin):
 
         queues = [self._create_queue(topic['queue'], exchange,
                                      topic['routing_key'])
-                  for topic in self.topics]
+                      for topic in self.topics]
 
-        return [Consumer(queues=queues, callbacks=[self.on_notification])]
+        return [Consumer(queues=queues, callbacks=[self._on_notification])]
 
     def _process(self, message):
         routing_key = message.delivery_info['routing_key']
@@ -77,12 +79,12 @@ class Worker(kombu.mixins.ConsumerMixin):
         self.callback.on_event(self.deployment, args, asJson, self.exchange)
         message.ack()
 
-    def on_notification(self, body, message):
+    def _on_notification(self, body, message):
         try:
             self._process(message)
         except Exception, e:
             self.logger.debug("Problem: %s\nFailed message body:\n%s" %
-                      (e, anyjson.loads(str(message.body))))
+                      (e, anyjson.loads(str(body))))
             raise
 
     def _shutdown(self, signal, stackframe=False):
