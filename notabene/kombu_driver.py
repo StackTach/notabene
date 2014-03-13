@@ -24,7 +24,7 @@ def _loads(string):
     return anyjson.loads(kombu.serialization.BytesIO(string))
 
 
-class Worker(kombu.mixins.ConsumerMixins):
+class Worker(kombu.mixins.ConsumerMixin):
     def __init__(self, callback, name, connection, deployment, durable,
                  queue_arguments, exchange, topics, logger):
         self.callback = callback
