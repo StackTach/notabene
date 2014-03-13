@@ -115,9 +115,6 @@ class TestNotaBeneProcess(unittest.TestCase):
         config = {   
             "id": 1,
             "name": "my stack",
-            "topics": {
-                "nova": []
-            }
         }
 
         driver = mock.Mock()
@@ -132,9 +129,6 @@ class TestNotaBeneProcess(unittest.TestCase):
         config = {   
             "id": 1,
             "name": "my stack",
-            "topics": {
-                "nova": []
-            }
         }
 
         driver = mock.Mock()
