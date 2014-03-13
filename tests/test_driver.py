@@ -1,3 +1,6 @@
+# Copyright 2014 - Dark Secret Software Inc.
+# All Rights Reserved.
+
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -21,32 +24,18 @@ class Worker(object):
         self.exchange = exchange
         self.logger = logger
 
-        signal.signal(signal.SIGTERM, self._shutdown)
-
-        kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
-                                     content_type='application/json',
-                                     content_encoding='binary')
-
     def _process(self, message):
-        routing_key = message.delivery_info['routing_key']
-
-        body = str(message.body)
-        args = (routing_key, anyjson.loads(body))
+        args = ("test", anyjson.loads(body))
         asJson = anyjson.dumps(args)
         # save raw and ack the message
         self.callback.on_event(self.deployment, args, asJson, self.exchange)
 
-        self.processed += 1
-        message.ack()
-
-    def _shutdown(self, signal, stackframe=False):
+    def _shutdown(self):
         self.should_stop = True
         self.callback.shutting_down()
 
 
 def start_worker(callback, name, deployment_id, deployment_config, 
-                 exchange, logger, shutdown_soon):
-    worker = Worker(callback, name, conn, deployment_id, durable,
-                    queue_arguments, exchange, topics[exchange], 
-                    logger)
+                 exchange, logger):
+    worker = Worker(callback, name, deployment_id, logger)
     worker.run()

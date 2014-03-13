@@ -70,7 +70,7 @@ class LogManager(object):
                                                 project_name, '%s.log')
         self.default_logger_name = '%s-default' % project_name
 
-        logger = self.get_logger(worker_name, is_parent=True))
+        logger = self.get_logger(worker_name, is_parent=True)
         self.queue = self.get_queue(logger.name)
 
     def set_default_logger_location(self, loc):
@@ -207,8 +207,8 @@ class TimedRotatingFileHandlerWithCurrentTimestamp(
         while newRolloverAt <= currentTime:
             newRolloverAt = newRolloverAt + self.interval
         # If DST changes and midnight or weekly rollover, adjust for this.
-        if (self.when == 'MIDNIGHT' or self.when.startswith('W'))
-                and not self.utc:
+        if (self.when == 'MIDNIGHT' or self.when.startswith('W')
+                and not self.utc):
             dstNow = time.localtime(currentTime)[-1]
             dstAtRollover = time.localtime(newRolloverAt)[-1]
             if dstNow != dstAtRollover:

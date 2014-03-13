@@ -91,7 +91,7 @@ class Worker(kombu.mixins.ConsumerMixins):
 
 
 def start_worker(callback, name, deployment_id, deployment_config, 
-                 exchange, logger, shutdown_soon):
+                 exchange, logger):
     host = deployment_config.get('rabbit_host', 'localhost')
     port = deployment_config.get('rabbit_port', 5672)
     user_id = deployment_config.get('rabbit_userid', 'rabbit')

@@ -110,19 +110,17 @@ class NotaBene(object):
 
     def spawn_consumers(self, config):
         self._init_logging_queue()
-        for deployment in config.deployments():
+        for deployment in config.get('deployments', []):
             if deployment.get('enabled', True):
-                # Close the connection before spinning up the child process,
-                # otherwise the child process will attempt to use the connection
-                # the parent process opened up to get/create the deployment.
-                close_connection()
-                for exchange in deployment.get('topics').keys():
-                    process = multiprocessing.Process(target=_spawn_consumer,
-                              args=(self.log_listener, deployment, exchange, 
-                                    self.driver, self.callback_class))
+                for exchange in deployment.get('topics',{}).keys():
+                    process = multiprocessing.Process(
+                                  target=self._spawn_consumer,
+                                  args=(self.log_listener, deployment, 
+                                        exchange, self.driver, 
+                                        self.callback_class))
                     process.daemon = True
                     process.start()
-                    processes.append(process)
-        signal.signal(signal.SIGINT, _kill_time)
-        signal.signal(signal.SIGTERM, _kill_time)
+                    self.processes.append(process)
+        signal.signal(signal.SIGINT, self._kill_time)
+        signal.signal(signal.SIGTERM, self._kill_time)
         signal.pause()
