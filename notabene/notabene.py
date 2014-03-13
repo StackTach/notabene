@@ -16,6 +16,7 @@
 import multiprocessing
 import time
 import signal
+import sys
 
 import anyjson
 
@@ -43,6 +44,7 @@ class NotaBeneProcess(object):
         self.shutdown_soon = False
         self.driver = driver
         self.callback_class = callback_class
+        self.log_manager = log_manager
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
@@ -59,27 +61,25 @@ class NotaBeneProcess(object):
         name = self.deployment_config['name']
         exit_on_exception = self.deployment_config.get('exit_on_exception',
                                                        False)
-        deployment_id = deployment_config['id']  # Mandatory.
-
-        self.logger = log_manager.get_logger("worker", is_parent=False)
-        self.logger.info("%s: %s %s %s %s %s" %
-                    (name, exchange, host, port, user_id, virtual_host))
-
+        deployment_id = self.deployment_config['id']  # Mandatory.
+        self.logger = self.log_manager.get_logger("worker", is_parent=False)
         callback = self.callback_class(self)
 
         # continue_running() is used for testing
-        while continue_running():
+        while self._continue_running():
             self.logger.debug("Processing on '%s %s'" % (name, self.exchange))
             try:
+                # Block in driver event consumer until we 
+                # exit gracefully or error out.
                 self.driver(callback, name, deployment_id, 
                             self.deployment_config, self.exchange,
                             self.logger)
             except Exception as e:
                 self.logger.exception(
                     "name=%s, exchange=%s, exception=%s. "
-                    "Reconnecting in 5s" % (name, exchange, e))
-                exit_or_sleep(exit_on_exception)
-        self.logger.debug("Completed processing on '%s %s'" % (name, exchange))
+                    "Reconnecting in 5s" % (name, self.exchange, e))
+                self._exit_or_sleep(exit_on_exception)
+        self.logger.debug("Completed processing on '%s %s'" % (name, self.exchange))
 
 
 class NotaBene(object):

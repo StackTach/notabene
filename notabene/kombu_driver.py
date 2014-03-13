@@ -108,6 +108,8 @@ def start_worker(callback, name, deployment_id, deployment_config,
                   transport="librabbitmq",
                   virtual_host=virtual_host)
 
+    logger.info("%s: %s %s %s %s %s" %
+                (name, exchange, host, port, user_id, virtual_host))
     with kombu.connection.BrokerConnection(**params) as conn:
         worker = Worker(callback, name, conn, deployment_id, durable,
                         queue_arguments, exchange, topics[exchange], 
