@@ -38,7 +38,8 @@ class ParentLoggerDoesNotExist(Exception):
 
 class QueueHandler(logging.Handler):
     def __init__(self, queue):
-        super(QueueHandler, self).__init__()
+        # non-standard subclass initialization because logging.Handler is odd.
+        logging.Handler.__init__(self)
         self.queue = queue
 
     def emit(self, record):
@@ -63,25 +64,26 @@ class QueueHandler(logging.Handler):
 
 
 class LogManager(object):
-    def __init__(self, project_name, worker_name):
+    def __init__(self, project_name, worker_name, 
+                 logger_name=None, logger_location=None):
         self.loggers = {}
         self.logger_queue_map = {}
-        self.default_logger_location = '/var/log/%s/%s' % (
-                                                project_name, '%s.log')
-        self.default_logger_name = '%s-default' % project_name
+        if logger_location:
+            self.logger_location = "%s/%s" % (logger_location, 
+                                                      "%s.log")
+        else:
+            self.logger_location = '/var/log/%s/%s' % (project_name, '%s.log')
+        if logger_name:
+            self.logger_name = logger_name
+        else:
+            self.logger_name = '%s-default' % project_name
 
-        logger = self.get_logger(worker_name, is_parent=True)
-        self.queue = self.get_queue(logger.name)
-
-    def set_default_logger_location(self, loc):
-        self.default_logger_location = loc
-
-    def set_default_logger_name(self, name):
-        default_logger_name = name
+        self.logger = self.get_logger(name=worker_name, is_parent=True)
+        self.queue = self.get_queue(self.logger.name)
 
     def _create_parent_logger(self, name):
         if name not in self.loggers:
-            logger = _create_timed_rotating_logger(name)
+            logger = self._create_timed_rotating_logger(name)
             self.loggers[name] = logger
             self.logger_queue_map[name] = multiprocessing.Queue(-1)
 
@@ -113,7 +115,7 @@ class LogManager(object):
         logger = logging.getLogger(name)
         logger.setLevel(logging.DEBUG)
         handler = TimedRotatingFileHandlerWithCurrentTimestamp(
-            default_logger_location % name, when='midnight', interval=1,
+            self.logger_location % name, when='midnight', interval=1,
             backupCount=6)
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -122,9 +124,9 @@ class LogManager(object):
         logger.handlers[0].doRollover()
         return logger
 
-    def get_logger(name=None, is_parent=True):
+    def get_logger(self, name, is_parent=True):
         if name is None:
-            name = self.default_logger_name
+            name = self.logger_name
         if is_parent:
             return self._create_parent_logger(name)
         return self._create_child_logger(name)
@@ -159,7 +161,7 @@ class LogManager(object):
 
     def _get_child_logger(self, name):
         if name is None:
-            name = self.default_logger_name
+            name = self.logger_name
         return self.get_logger(name=name, is_parent=False)
 
     def warn(self, msg, name=None):

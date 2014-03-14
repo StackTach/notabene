@@ -50,6 +50,7 @@ class NotaBeneProcess(object):
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
     def _continue_running(self):
+        self.logger.debug("%s: process shutting down" % self.exchange)
         return not self.shutdown_soon
 
     def _exit_or_sleep(self, exit=False):
@@ -74,6 +75,7 @@ class NotaBeneProcess(object):
                 self.driver(callback, name, deployment_id, 
                             self.deployment_config, self.exchange,
                             self.logger)
+                self.logger.debug("Out of driver for '%s %s'" % (name, self.exchange))
             except Exception as e:
                 self.logger.exception(
                     "name=%s, exchange=%s, exception=%s. "
@@ -83,44 +85,44 @@ class NotaBeneProcess(object):
 
 
 class NotaBene(object):
-    def __init__(self, driver, callback_class):
+    def __init__(self, driver, callback_class, log_manager):
         self.processes = []
-        self.log_listener = None
+        self.log_manager = log_manager
         self.driver = driver
         self.callback_class = callback_class
+        self.logger = self.log_manager.get_logger("worker", is_parent=True)
+
+    def graceful_shutdown(self):
+        for process in self.processes:
+            process.join()
+        if self.log_manager:
+            self.log_manager.end()
 
     def _kill_time(self, signal, frame):
         print "dying ..."
         for process in self.processes:
             process.terminate()
         print "rose"
-        for process in self.processes:
-            process.join()
-        if log_listener:
-            log_listener.end()
+        self._graceful_shutdown()
         print "bud"
 
-    def _init_logging_queue(self):
-        log_listener = queued_log.LogListener("notabene", "worker")
-        log_listener.start()
-
     def _spawn_consumer(self, deployment, exchange):
-        n = NotaBeneProcess(deployment, exchange, self.log_listener)
+        n = NotaBeneProcess(deployment, exchange, self.log_manager, 
+                            self.driver, self.callback_class)
         n.run()
 
     def spawn_consumers(self, config):
-        self._init_logging_queue()
         for deployment in config.get('deployments', []):
             if deployment.get('enabled', True):
                 for exchange in deployment.get('topics',{}).keys():
                     process = multiprocessing.Process(
                                   target=self._spawn_consumer,
-                                  args=(self.log_listener, deployment, 
-                                        exchange, self.driver, 
-                                        self.callback_class))
+                                  args=(deployment, exchange))
                     process.daemon = True
                     process.start()
                     self.processes.append(process)
+
+    def wait_for_signal(self):
         signal.signal(signal.SIGINT, self._kill_time)
         signal.signal(signal.SIGTERM, self._kill_time)
         signal.pause()

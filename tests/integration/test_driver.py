@@ -13,29 +13,37 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import time
+
 
 class Worker(object):
-    def __init__(self, callback, name, deployment, logger):
+    def __init__(self, callback, name, deployment_id, logger, config,
+                 exchange):
         self.callback = callback
-        self.deployment = deployment
+        self.deployment_id = deployment_id
         self.name = name
         self.total_processed = 0
-        self.topics = topics
+        self.config = config
         self.exchange = exchange
         self.logger = logger
 
-    def _process(self, message):
+    def process(self, message):
         args = ("test", anyjson.loads(body))
         asJson = anyjson.dumps(args)
         # save raw and ack the message
         self.callback.on_event(self.deployment, args, asJson, self.exchange)
 
-    def _shutdown(self):
-        self.should_stop = True
+    def run(self):
+        self.logger.debug("%s: Starting Test Worker" % self.exchange)
+        time.sleep(3)
+        self.logger.debug("%s: Calling shutdown on callback" % self.exchange)
         self.callback.shutting_down()
+        self.logger.debug("%s: Working finishing up." % self.exchange)
 
-
+        
 def start_worker(callback, name, deployment_id, deployment_config, 
                  exchange, logger):
-    worker = Worker(callback, name, deployment_id, logger)
+    worker = Worker(callback, name, deployment_id, logger, deployment_config,
+                    exchange)
     worker.run()
+    logger.debug("start_worker finished on '%s'" % exchange)

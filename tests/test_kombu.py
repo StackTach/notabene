@@ -65,8 +65,7 @@ class TestKombuDriver(unittest.TestCase):
         self.assertEqual(args[3], "exchange")
 
     def test_on_notification_fails(self):
-        callback = mock.Mock()
-        w = self._create_worker(callback, None, "deployment", None)
+        w = self._create_worker(None, None, "deployment", None)
         with mock.patch.object(w, "_process") as process:
             process.side_effect = MyException()
             self.assertRaises(MyException, w._on_notification,
@@ -74,11 +73,16 @@ class TestKombuDriver(unittest.TestCase):
             self.assertTrue(self.logger.debug.called_once)
 
     def test_on_notification(self):
-        callback = mock.Mock()
-        w = self._create_worker(callback, None, "deployment", None)
+        w = self._create_worker(None, None, "deployment", None)
         with mock.patch.object(w, "_process") as process:
             w._on_notification('["body"]', "message")
             self.assertFalse(self.logger.debug.called)
+
+    def test_shutdown(self):
+        callback = mock.Mock()
+        w = self._create_worker(callback, None, None, None)
+        w._shutdown(None)
+        self.assertTrue(callback.shutting_down.called_once)
 
         
 class TestKombuDriverStartWorker(unittest.TestCase):
