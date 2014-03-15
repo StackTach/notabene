@@ -15,7 +15,7 @@ class MyException(Exception):
 
 class TestNotaBene(unittest.TestCase):
     def setUp(self):
-        self.notabene = notabene.NotaBene(None, None)
+        self.notabene = notabene.NotaBene(None, None, mock.Mock())
 
     def test_spawn_consumer(self):
         with mock.patch('notabene.notabene.NotaBeneProcess') as m:
@@ -24,14 +24,8 @@ class TestNotaBene(unittest.TestCase):
 
     def test_spawn_consumers_empty(self):
         config = {}
-        with nested(
-                mock.patch.object(self.notabene, "_init_logging_queue"),
-                mock.patch("signal.signal"),
-                mock.patch("signal.pause"),
-            ):
-            with mock.patch('multiprocessing.Process') as p:
-                self.notabene.spawn_consumers(config)
-                self.assertFalse(p.spawn.called)
+        with mock.patch('multiprocessing.Process') as p:
+            self.notabene.spawn_consumers(config)
 
     def test_spawn_consumers_some_enabled(self):
         config = {"deployments": [
@@ -48,20 +42,15 @@ class TestNotaBene(unittest.TestCase):
                 }
             }]
         }
-        with nested(
-                mock.patch.object(self.notabene, "_init_logging_queue"),
-                mock.patch("signal.signal"),
-                mock.patch("signal.pause"),
-        ):
-            with nested(
-                mock.patch('multiprocessing.Process'),
-                mock.patch('signal.pause')
-            ) as (p, pause):
-                self.notabene.spawn_consumers(config)
-                self.assertTrue(p.spawn.called_once)
+        with mock.patch('multiprocessing.Process') as p:
+            self.notabene.spawn_consumers(config)
+
+    def test_wait_for_signal(self):
+        with mock.patch("signal.signal"):
+            with mock.patch("signal.pause") as pause:
+                self.notabene.wait_for_signal()
                 self.assertTrue(pause.pause.called_once)
-
-
+                
 class TestCallback(object):
     def __init__(self, process):
         self.process = process
@@ -90,9 +79,9 @@ class TestNotaBeneProcess(unittest.TestCase):
                                            callback_class)
 
     def test_continue_running(self):
-        self.assertTrue(
-            self._create_notabene_process(None, None, None, None, None).
-                _continue_running())
+        p = self._create_notabene_process(None, None, None, None, None)
+        p.logger = mock.Mock()
+        self.assertTrue(p._continue_running())
 
     def test_exit_or_sleep_sleep(self):
         p = self._create_notabene_process(None, None, None, None, None)

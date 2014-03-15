@@ -126,3 +126,19 @@ class NotaBene(object):
         signal.signal(signal.SIGINT, self._kill_time)
         signal.signal(signal.SIGTERM, self._kill_time)
         signal.pause()
+
+
+if __name__ == '__main__':
+    # Grab cmdline options
+    driver = "..."
+    log_dir = "..."
+    callback_class = "..."
+    config = "..."
+
+    log_manager = queued_log.LogManager("notabene", "worker",
+                                logger_location=log_dir)
+    log_manager.start()
+
+    n = NotaBene(driver, callback_class, log_manager)
+    n.spawn_consumers(config)
+    n.wait_for_signal()
