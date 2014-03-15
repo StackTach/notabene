@@ -60,8 +60,8 @@ class TestKombuDriver(unittest.TestCase):
         self.assertTrue(callback.on_event.called_once)
         args = callback.on_event.call_args[0]
         self.assertEqual(args[0], "deployment")
-        self.assertEqual(args[1], ('the key', {'payload': 123}))
-        self.assertEqual(args[2], '["the key", {"payload": 123}]')
+        self.assertEqual(args[1], 'the key')
+        self.assertEqual(args[2], {'payload': 123})
         self.assertEqual(args[3], "exchange")
 
     def test_on_notification_fails(self):

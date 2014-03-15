@@ -27,9 +27,9 @@ class NoopHandler(object):
     def __init__(self, process):
         self.process = process
 
-    def on_event(self, deployment, args, asJson, exchange):
-        print "deployment: %s, args: %s, payload: %s, exchange: %s" % (
-            deployment, args, asJson, exchange)
+    def on_event(self, deployment, routing_key, body, exchange):
+        print "deployment: %s, routing_key: %s, body: %s, exchange: %s" % (
+            deployment, routing_key, body, exchange)
 
     def shutting_down(self):
         self.shutdown_soon = True

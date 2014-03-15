@@ -16,6 +16,16 @@
 import time
 
 
+class FakeMessage(object):
+    def __init__(self, routing_key, body):
+        self.delivery_info = {'routing_key': routing_key}
+        self.body = body
+        self.acked = False
+
+    def ack(self):
+        self.acked = True
+
+
 class Worker(object):
     def __init__(self, callback, name, deployment_id, logger, config,
                  exchange):
@@ -31,11 +41,20 @@ class Worker(object):
         args = ("test", anyjson.loads(body))
         asJson = anyjson.dumps(args)
         # save raw and ack the message
-        self.callback.on_event(self.deployment, args, asJson, self.exchange)
+        self.callback.on_event(self.deployment_id, args, asJson, self.exchange)
 
     def run(self):
         self.logger.debug("%s: Starting Test Worker" % self.exchange)
-        time.sleep(3)
+        messages = [FakeMessage("error", 
+                                {'id': 1, 'event_name': 'create.start'}),
+                    FakeMessage("error", 
+                                {'id': 2, 'event_name': 'create.end'})]
+        for message in messages:
+            routing_key = "routing_key"
+            body = {'id':1}
+            self.callback.on_event(self.deployment_id, routing_key, body, 
+                                   self.exchange)
+            time.sleep(1)
         self.logger.debug("%s: Calling shutdown on callback" % self.exchange)
         self.callback.shutting_down()
         self.logger.debug("%s: Working finishing up." % self.exchange)

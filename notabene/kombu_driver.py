@@ -71,12 +71,10 @@ class Worker(kombu.mixins.ConsumerMixin):
 
     def _process(self, message):
         routing_key = message.delivery_info['routing_key']
-
-        body = str(message.body)
-        args = (routing_key, anyjson.loads(body))
-        asJson = anyjson.dumps(args)
+        body = anyjson.loads(str(message.body))
         # save raw and ack the message
-        self.callback.on_event(self.deployment, args, asJson, self.exchange)
+        self.callback.on_event(self.deployment, routing_key, body, 
+                               self.exchange)
         message.ack()
 
     def _on_notification(self, body, message):
