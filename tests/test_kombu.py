@@ -13,6 +13,7 @@ class MyException(Exception):
     """Don't use Exception in tests."""
     pass
 
+
 class TestKombuDriver(unittest.TestCase):
     def setUp(self):
         self.process_patchers = []

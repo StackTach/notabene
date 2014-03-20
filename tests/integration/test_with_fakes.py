@@ -1,7 +1,6 @@
 # Copyright 2014 - Dark Secret Software Inc.
 # All Rights Reserved.
 
-from contextlib import nested
 import multiprocessing
 import os
 import shutil
