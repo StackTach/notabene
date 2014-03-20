@@ -15,7 +15,7 @@ class MyException(Exception):
 
 class TestNotaBene(unittest.TestCase):
     def setUp(self):
-        self.notabene = notabene.NotaBene(None, None, mock.Mock())
+        self.notabene = notabene.NotaBene(None, None, None, mock.Mock())
 
     def test_spawn_consumer(self):
         with mock.patch('notabene.notabene.NotaBeneProcess') as m:
@@ -51,8 +51,9 @@ class TestNotaBene(unittest.TestCase):
                 self.notabene.wait_for_signal()
                 self.assertTrue(pause.pause.called_once)
                 
+
 class TestCallback(object):
-    def __init__(self, process):
+    def __init__(self, process, args):
         self.process = process
         self.events = []
         self.shutdown_soon = False
@@ -73,10 +74,10 @@ class TestNotaBeneProcess(unittest.TestCase):
             p.stop()
 
     def _create_notabene_process(self, config, exchange, log, driver, 
-                                 callback_class):
+                                 callback_class, args=None):
         self.process_patchers.append(mock.patch("signal.signal").start())
         return notabene.NotaBeneProcess(config, exchange, log, driver, 
-                                           callback_class)
+                                           callback_class, args)
 
     def test_continue_running(self):
         p = self._create_notabene_process(None, None, None, None, None)

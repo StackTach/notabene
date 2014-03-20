@@ -24,7 +24,7 @@ import queued_log
 
 
 class NoopHandler(object):
-    def __init__(self, process):
+    def __init__(self, process, args):
         self.process = process
 
     def on_event(self, deployment, routing_key, body, exchange):
@@ -38,12 +38,13 @@ class NoopHandler(object):
 class NotaBeneProcess(object):
 
     def __init__(self, deployment_config, exchange, log_manager, driver, 
-                 callback_class):
+                 callback_class, callback_args):
         self.deployment_config = deployment_config
         self.exchange = exchange
         self.shutdown_soon = False
         self.driver = driver
         self.callback_class = callback_class
+        self.callback_args = callback_args
         self.log_manager = log_manager
 
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -64,7 +65,7 @@ class NotaBeneProcess(object):
                                                        False)
         deployment_id = self.deployment_config['id']  # Mandatory.
         self.logger = self.log_manager.get_logger("worker", is_parent=False)
-        callback = self.callback_class(self)
+        callback = self.callback_class(self, self.callback_args)
 
         # continue_running() is used for testing
         while self._continue_running():
@@ -85,11 +86,12 @@ class NotaBeneProcess(object):
 
 
 class NotaBene(object):
-    def __init__(self, driver, callback_class, log_manager):
+    def __init__(self, driver, callback_class, callback_args, log_manager):
         self.processes = []
         self.log_manager = log_manager
         self.driver = driver
         self.callback_class = callback_class
+        self.callback_args = callback_args
         self.logger = self.log_manager.get_logger("worker", is_parent=True)
 
     def graceful_shutdown(self):
@@ -108,7 +110,8 @@ class NotaBene(object):
 
     def _spawn_consumer(self, deployment, exchange):
         n = NotaBeneProcess(deployment, exchange, self.log_manager, 
-                            self.driver, self.callback_class)
+                            self.driver, self.callback_class,
+                            self.callback_args)
         n.run()
 
     def spawn_consumers(self, config):

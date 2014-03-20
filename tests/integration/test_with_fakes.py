@@ -2,6 +2,7 @@
 # All Rights Reserved.
 
 from contextlib import nested
+import multiprocessing
 import os
 import shutil
 import unittest
@@ -13,10 +14,12 @@ import test_driver
 
 
 class TestHandler(object):
-    def __init__(self, process):
+    def __init__(self, process, args):
         self.process = process
+        self.received = args[0]
 
     def on_event(self, deployment, routing_key, body, exchange):
+        self.received.put((deployment, routing_key, body, exchange))
         self.process.logger.debug(
             "deployment: %s, routing_key: %s, body: %s, exchange: %s" % 
                 (deployment, routing_key, body, exchange))
@@ -36,8 +39,14 @@ class TestNotaBene(unittest.TestCase):
         self.log_manager = queued_log.LogManager("notabene", "worker",
                                     logger_location=self.log_dir)
         self.log_manager.start()
+
+        # Since we're defining received in this process
+        # and sharing it with other processes via fork (essentially), 
+        # we need to use proper shared memory mechanisms.
+        self.received = multiprocessing.Queue()
         self.notabene = notabene.NotaBene(test_driver.start_worker, 
-                                          TestHandler, self.log_manager)
+                                          TestHandler, (self.received, ), 
+                                          self.log_manager)
 
     def tearDown(self):
         #shutil.rmtree(self.log_dir)
@@ -59,3 +68,5 @@ class TestNotaBene(unittest.TestCase):
         # don't call wait_for_signal, we want to exit. 
         # Also, don't exit before the processes finish.
         self.notabene.graceful_shutdown()
+
+        self.assertEquals(6, self.received.qsize())
