@@ -14,6 +14,28 @@
 # under the License.
 
 def flatten(data, result, prefix=""):
+    """Take a json structure and convert it to a flattened
+       list of (key, value) tuples. For example:
+
+       {"foo": [ 
+                   "sam",
+                   "alice",
+                   { 
+                       "bob": 99,
+                       "fred": 100
+                   },
+                   "zoo"
+               ]
+       }
+
+       returns
+
+       [("foo[0]", "sam"),
+        ("foo[1]", "alice"),
+        ("foo[2].bob", 99),
+        ("foo[2].fred", 100),
+        ("foo[3]]", "zoo)]
+    """
     if type(data) is list:
         for index, item in enumerate(data):
             sub = "%s[%d]" % (prefix, index)

@@ -11,7 +11,7 @@ expected = [
     ('_context_request_id', 'req-1234'), 
     ('event_type', 'compute.instance.exists'), 
     ('timestamp', '2013-06-20 17:31:57.939614'), 
-    ('_context_project_id', 'tenant-1'), i
+    ('_context_project_id', 'tenant-1'),
     ('publisher_id', 'compute.global.preprod-ord.ohthree.com'), 
     ('payload.status', 'saving'), 
     ('payload.container_format', 'ovf'), 
