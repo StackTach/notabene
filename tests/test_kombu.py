@@ -44,7 +44,7 @@ class TestKombuDriver(unittest.TestCase):
         w = self._create_worker(None, None, None, topics)
 
         # This call normally comes from within kombu ...
-        c = w.get_consumers(consumer_class, None) 
+        c = w.get_consumers(consumer_class, None)
         self.assertEqual(1, len(c))
         args = c[0]
         self.assertEqual(2, len(args.queues))
@@ -85,7 +85,7 @@ class TestKombuDriver(unittest.TestCase):
         w._shutdown(None)
         self.assertTrue(callback.shutting_down.called_once)
 
-        
+
 class TestKombuDriverStartWorker(unittest.TestCase):
     def setUp(self):
         self.logger = mock.Mock()
@@ -105,12 +105,12 @@ class TestKombuDriverStartWorker(unittest.TestCase):
 
                 logger = mock.Mock()
                 callback = mock.Mock()
-                kombu_driver.start_worker(callback, "my name", 1, config, 
+                kombu_driver.start_worker(callback, "my name", 1, config,
                                           "topic_1", logger)
 
                 self.assertTrue(worker.run.called_once)
 
-                # Ignore the BrokerConnection (hard to mock since it's a 
+                # Ignore the BrokerConnection (hard to mock since it's a
                 # context handler)
                 args = list(worker.call_args[0])
                 del args[2]
@@ -125,12 +125,12 @@ class TestKombuDriverStartWorker(unittest.TestCase):
 
                 logger = mock.Mock()
                 callback = mock.Mock()
-                kombu_driver.start_worker(callback, "my name", 1, config, 
+                kombu_driver.start_worker(callback, "my name", 1, config,
                                           "topic_1", logger)
 
                 self.assertTrue(worker.run.called_once)
 
-                # Ignore the BrokerConnection (hard to mock since it's a 
+                # Ignore the BrokerConnection (hard to mock since it's a
                 # context handler)
                 args = list(worker.call_args[0])
                 del args[2]
@@ -145,10 +145,8 @@ class TestKombuDriverStartWorker(unittest.TestCase):
 
                 logger = mock.Mock()
                 callback = mock.Mock()
-                self.assertRaises(KeyError, kombu_driver.start_worker, 
-                                 callback, "my name", 1, config, "topic_1", 
+                self.assertRaises(KeyError, kombu_driver.start_worker,
+                                 callback, "my name", 1, config, "topic_1",
                                  logger)
 
                 self.assertFalse(worker.run.called)
-
-
