@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-import signal 
+import signal
 
 import anyjson
 import kombu
@@ -24,6 +24,14 @@ import kombu.serialization
 
 def _loads(string):
     return anyjson.loads(kombu.serialization.BytesIO(string))
+
+
+def create_exchange(name, exchange_type, exclusive=False, auto_delete=False,
+                    durable=True):
+    return kombu.entity.Exchange(name,
+                                 type=exchange_type,
+                                 exclusive=exclusive,
+                                 auto_delete=auto_delete, durable=durable)
 
 
 class Worker(kombu.mixins.ConsumerMixin):
@@ -45,14 +53,6 @@ class Worker(kombu.mixins.ConsumerMixin):
                                      content_type='application/json',
                                      content_encoding='binary')
 
-    def _create_exchange(self, name, exchange_type, exclusive=False,
-                         auto_delete=False, durable=True):
-        return kombu.entity.Exchange(name,
-                                     type=exchange_type,
-                                     exclusive=exclusive,
-                                     auto_delete=auto_delete, durable=durable)
-
-
     def _create_queue(self, name, exchange, routing_key, exclusive=False,
                      auto_delete=False, durable=True):
         return kombu.Queue(name, exchange, durable=durable,
@@ -61,7 +61,7 @@ class Worker(kombu.mixins.ConsumerMixin):
                            routing_key=routing_key)
 
     def get_consumers(self, Consumer, channel):
-        exchange = self._create_exchange(self.exchange, "topic")
+        exchange = create_exchange(self.exchange, "topic")
 
         queues = [self._create_queue(topic['queue'], exchange,
                                      topic['routing_key'])
@@ -73,7 +73,7 @@ class Worker(kombu.mixins.ConsumerMixin):
         routing_key = message.delivery_info['routing_key']
         body = anyjson.loads(str(message.body))
         # save raw and ack the message
-        self.callback.on_event(self.deployment, routing_key, body, 
+        self.callback.on_event(self.deployment, routing_key, body,
                                self.exchange)
         message.ack()
 
@@ -90,7 +90,20 @@ class Worker(kombu.mixins.ConsumerMixin):
         self.callback.shutting_down()
 
 
-def start_worker(callback, name, deployment_id, deployment_config, 
+def send_notification(message, routing_key, connection, exchange):
+    with kombu.pools.producers[connection].acquire(block=True) as producer:
+         kombu.common.maybe_declare(exchange, producer.channel)
+         producer.publish(message, routing_key)
+
+
+def create_connection(hostname, port, userid, password, transport,
+                      virtual_host):
+    return kombu.connection.BrokerConnection(
+        hostname=hostname, port=port, userid=userid, password=password,
+        transport=transport, virtual_host=virtual_host)
+
+
+def start_worker(callback, name, deployment_id, deployment_config,
                  exchange, logger):
     host = deployment_config.get('rabbit_host', 'localhost')
     port = deployment_config.get('rabbit_port', 5672)
@@ -101,17 +114,13 @@ def start_worker(callback, name, deployment_id, deployment_config,
     queue_arguments = deployment_config.get('queue_arguments', {})
     topics = deployment_config.get('topics', {})
 
-    params = dict(hostname=host,
-                  port=port,
-                  userid=user_id,
-                  password=password,
-                  transport="librabbitmq",
-                  virtual_host=virtual_host)
-
     logger.info("%s: %s %s %s %s %s" %
                 (name, exchange, host, port, user_id, virtual_host))
-    with kombu.connection.BrokerConnection(**params) as conn:
-        worker = Worker(callback, name, conn, deployment_id, durable,
-                        queue_arguments, exchange, topics[exchange], 
-                        logger)
-        worker.run()
+    connection = create_connection(hostname=host, port=port, userid=user_id,
+                                   password=password, transport="librabbitmq",
+                                   virtual_host=virtual_host)
+    worker = Worker(callback, name, connection, deployment_id, durable,
+                    queue_arguments, exchange, topics[exchange],
+                    logger)
+    worker.run()
+    connection.close()

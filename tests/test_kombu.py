@@ -29,12 +29,11 @@ class TestKombuDriver(unittest.TestCase):
                  {}, "exchange", topics, self.logger)
 
     def test_create_exchange(self):
-        w = self._create_worker(None, None, None, None)
-        w._create_exchange("name", "topic")
+        kombu_driver.create_exchange("name", "topic")
 
     def test_create_queue(self):
+        e = kombu_driver.create_exchange("name", "topic")
         w = self._create_worker(None, None, None, None)
-        e = w._create_exchange("name", "topic")
         w._create_queue("name", e, "routing_key")
 
     def test_get_consumers(self):
