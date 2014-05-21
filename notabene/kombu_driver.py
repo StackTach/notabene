@@ -35,11 +35,11 @@ def create_exchange(name, exchange_type, exclusive=False, auto_delete=False,
 
 
 def create_queue(name, exchange, routing_key, exclusive=False,
-                 auto_delete=False, durable=True, queue_arguments={}):
+                 auto_delete=False, durable=True, queue_arguments={}, channel=None):
     return kombu.Queue(name, exchange, durable=durable,
                        auto_delete=auto_delete, exclusive=exclusive,
                        queue_arguments=queue_arguments,
-                       routing_key=routing_key)
+                       routing_key=routing_key, channel=channel)
 
 
 class Worker(kombu.mixins.ConsumerMixin):
