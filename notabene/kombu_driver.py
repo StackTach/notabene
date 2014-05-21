@@ -11,6 +11,7 @@
 # under the License.
 
 import signal
+import sys
 
 import anyjson
 import kombu
@@ -57,9 +58,9 @@ class Worker(kombu.mixins.ConsumerMixin):
 
         signal.signal(signal.SIGTERM, self._shutdown)
 
-        kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
-                                     content_type='application/json',
-                                     content_encoding='binary')
+#        kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
+#                                     content_type='application/json',
+#                                     content_encoding='binary')
 
     def get_consumers(self, Consumer, channel):
         exchange = create_exchange(self.exchange, "topic")
@@ -83,8 +84,7 @@ class Worker(kombu.mixins.ConsumerMixin):
         try:
             self._process(message)
         except Exception, e:
-            self.logger.debug("Problem: %s\nFailed message body:\n%s" %
-                      (e, anyjson.loads(str(body))))
+            self.logger.debug("Problem: %s\nFailed message body:\n" % e)
             raise
 
     def _shutdown(self, signal, stackframe=False):
@@ -109,8 +109,8 @@ def start_worker(callback, name, deployment_id, deployment_config,
                  exchange, logger):
     host = deployment_config.get('rabbit_host', 'localhost')
     port = deployment_config.get('rabbit_port', 5672)
-    user_id = deployment_config.get('rabbit_userid', 'rabbit')
-    password = deployment_config.get('rabbit_password', 'rabbit')
+    user_id = deployment_config.get('rabbit_userid', 'guest')
+    password = deployment_config.get('rabbit_password', 'guest')
     virtual_host = deployment_config.get('rabbit_virtual_host', '/')
     durable = deployment_config.get('durable_queue', True)
     queue_arguments = deployment_config.get('queue_arguments', {})
