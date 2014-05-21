@@ -25,16 +25,15 @@ class TestKombuDriver(unittest.TestCase):
 
     def _create_worker(self, callback, connection, deployment, topics):
         self.process_patchers.append(mock.patch("signal.signal").start())
-        return kombu_driver.Worker(callback, "worker", connection, deployment, False,
-                 {}, "exchange", topics, self.logger)
+        return kombu_driver.Worker(callback, "worker", connection, deployment,
+                                   False, {}, "exchange", topics, self.logger)
 
     def test_create_exchange(self):
         kombu_driver.create_exchange("name", "topic")
 
     def test_create_queue(self):
         e = kombu_driver.create_exchange("name", "topic")
-        w = self._create_worker(None, None, None, None)
-        w._create_queue("name", e, "routing_key")
+        kombu_driver.create_queue("name", e, "routing_key")
 
     def test_get_consumers(self):
         consumer_class = mock.Mock

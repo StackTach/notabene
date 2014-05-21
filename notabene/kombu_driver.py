@@ -34,6 +34,14 @@ def create_exchange(name, exchange_type, exclusive=False, auto_delete=False,
                                  auto_delete=auto_delete, durable=durable)
 
 
+def create_queue(name, exchange, routing_key, exclusive=False,
+                 auto_delete=False, durable=True, queue_arguments={}):
+    return kombu.Queue(name, exchange, durable=durable,
+                       auto_delete=auto_delete, exclusive=exclusive,
+                       queue_arguments=queue_arguments,
+                       routing_key=routing_key)
+
+
 class Worker(kombu.mixins.ConsumerMixin):
     def __init__(self, callback, name, connection, deployment, durable,
                  queue_arguments, exchange, topics, logger):
@@ -53,18 +61,12 @@ class Worker(kombu.mixins.ConsumerMixin):
                                      content_type='application/json',
                                      content_encoding='binary')
 
-    def _create_queue(self, name, exchange, routing_key, exclusive=False,
-                     auto_delete=False, durable=True):
-        return kombu.Queue(name, exchange, durable=durable,
-                           auto_delete=auto_delete, exclusive=exclusive,
-                           queue_arguments=self.queue_arguments,
-                           routing_key=routing_key)
-
     def get_consumers(self, Consumer, channel):
         exchange = create_exchange(self.exchange, "topic")
 
-        queues = [self._create_queue(topic['queue'], exchange,
-                                     topic['routing_key'])
+        queues = [create_queue(topic['queue'], exchange,
+                               topic['routing_key'],
+                               queue_arguments=self.queue_arguments)
                       for topic in self.topics]
 
         return [Consumer(queues=queues, callbacks=[self._on_notification])]
