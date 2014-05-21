@@ -11,7 +11,6 @@
 # under the License.
 
 import signal
-import sys
 
 import anyjson
 import kombu
@@ -57,10 +56,6 @@ class Worker(kombu.mixins.ConsumerMixin):
         self.logger = logger
 
         signal.signal(signal.SIGTERM, self._shutdown)
-
-#        kombu.serialization.register('bufferjson', _loads, anyjson.dumps,
-#                                     content_type='application/json',
-#                                     content_encoding='binary')
 
     def get_consumers(self, Consumer, channel):
         exchange = create_exchange(self.exchange, "topic")
