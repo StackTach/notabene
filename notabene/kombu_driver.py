@@ -90,7 +90,7 @@ class Worker(kombu.mixins.ConsumerMixin):
 def send_notification(message, routing_key, connection, exchange):
     with kombu.pools.producers[connection].acquire(block=True) as producer:
          kombu.common.maybe_declare(exchange, producer.channel)
-         producer.publish(message, routing_key)
+         producer.publish(message, routing_key=routing_key, exchange=exchange)
 
 
 def create_connection(hostname, port, userid, password, transport,
