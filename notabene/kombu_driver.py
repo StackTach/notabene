@@ -10,9 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import datetime
 import signal
 
-import anyjson
+import json
 import kombu
 import kombu.entity
 import kombu.pools
@@ -22,8 +23,14 @@ import kombu.mixins
 import kombu.serialization
 
 
+def date_default(obj):
+    if isinstance(obj, datetime.datetime):
+        return str(obj)
+    raise TypeError
+
+
 def _loads(string):
-    return anyjson.loads(kombu.serialization.BytesIO(string))
+    return json.loads(kombu.serialization.BytesIO(string))
 
 
 def create_exchange(name, exchange_type, exclusive=False, auto_delete=False,
@@ -69,7 +76,7 @@ class Worker(kombu.mixins.ConsumerMixin):
 
     def _process(self, message):
         routing_key = message.delivery_info['routing_key']
-        body = anyjson.loads(str(message.body))
+        body = json.loads(str(message.body))
         # save raw and ack the message
         self.callback.on_event(self.deployment, routing_key, body,
                                self.exchange)
@@ -88,9 +95,19 @@ class Worker(kombu.mixins.ConsumerMixin):
 
 
 def send_notification(message, routing_key, connection, exchange):
+    # While kombu can do the serialization, we need to pass extra args
+    # to handle datetimes, so we do it ourselves. (mdragon)
+    content_type = 'application/json'
+    content_encoding = 'utf-8'
+    msg_body = json.dumps(message, default=date_default)
+
     with kombu.pools.producers[connection].acquire(block=True) as producer:
          kombu.common.maybe_declare(exchange, producer.channel)
-         producer.publish(message, routing_key=routing_key, exchange=exchange)
+         producer.publish(msg_body,
+                          content_type=content_type,
+                          content_encoding=content_encoding,
+                          routing_key=routing_key,
+                          exchange=exchange)
 
 
 def create_connection(hostname, port, userid, password, transport,

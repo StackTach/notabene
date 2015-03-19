@@ -4,7 +4,7 @@
 from contextlib import nested
 import unittest
 
-import anyjson
+import json
 import mock
 from notabene import kombu_driver
 
@@ -53,7 +53,7 @@ class TestKombuDriver(unittest.TestCase):
         w = self._create_worker(callback, None, "deployment", None)
         message = mock.Mock()
         message.delivery_info = {'routing_key': "the key"}
-        message.body = anyjson.dumps({'payload': 123})
+        message.body = json.dumps({'payload': 123})
         w._process(message)
 
         self.assertTrue(callback.on_event.called_once)
